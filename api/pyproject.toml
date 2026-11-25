@@ -1,7 +1,7 @@
 [project]
 name = "voices"
 version = "0.1.0"
-description = "Local text-to-speech with Ollama's phonon model: FastAPI streaming backend, Vue frontend."
+description = "Local text-to-speech with Ollama's phonon model: FastAPI streaming backend, Vue UI."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

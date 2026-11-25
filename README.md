@@ -1,6 +1,6 @@
 # Voices
 
-Type or speak, and hear your words read back in a different voice. Voices runs text-to-speech locally with Ollama's `phonon` model. A FastAPI backend streams the audio, and a Vue 3 + Pinia + DaisyUI frontend plays it while it is still being generated.
+Type or speak, and hear your words read back in a different voice. Voices runs text-to-speech locally with Ollama's `phonon` model. A FastAPI backend (`api/`) streams the audio, and a Vue 3 + Pinia + DaisyUI frontend (`ui/`) plays it while it is still being generated.
 
 ```
 browser (Vue)  ──POST /api/speak──▶  FastAPI  ──/v1/audio/speech──▶  Ollama (phonon)
@@ -17,7 +17,7 @@ It is a text-to-speech app, not a chatbot. No language model sits in between: th
 | [Ollama](https://ollama.com) 0.40.9 or newer | Must be running (default `http://localhost:11434`). The `phonon` model requires this version. |
 | `phonon` model | `ollama pull phonon` (about 112 MB). |
 | [uv](https://docs.astral.sh/uv/) | Manages Python 3.14 and the backend dependencies. |
-| Node.js 20.19+ and npm | Builds the frontend. Developed with Node 24. |
+| Node.js 20.19+ and npm | Builds the UI. Developed with Node 24. |
 | `make` | Optional, but all commands below use it. |
 | A modern browser | Chrome, Edge or Safari for voice input. Firefox works for typing only. |
 
@@ -49,7 +49,7 @@ Press **Check again** in the banner after you fix the problem; no reload is need
 ```bash
 ollama pull phonon   # once
 make install         # once: installs Python and npm dependencies
-make run             # builds the frontend and serves it at http://localhost:8000
+make run             # builds the UI and serves it at http://localhost:8000
 ```
 
 Open http://localhost:8000, type something, and press **Speak it** (or Enter).
@@ -58,14 +58,14 @@ Open http://localhost:8000, type something, and press **Speak it** (or Enter).
 
 | Target | What it does |
 | --- | --- |
-| `make install` | `uv sync` and `npm install` |
-| `make build` | Builds the frontend into `frontend/dist` |
+| `make install` | `uv sync` in `api/` and `npm install` in `ui/` |
+| `make build` | Builds the UI into `ui/dist` |
 | `make run` | Builds, then serves the app and API on port 8000 |
 | `make api` | Backend only, with auto-reload, port 8000 |
-| `make web` | Vite dev server with hot reload, port 5173 (proxies `/api` to 8000) |
-| `make dev` | Runs `api` and `web` together; use http://localhost:5173 |
+| `make ui` | Vite dev server with hot reload, port 5173 (proxies `/api` to 8000) |
+| `make dev` | Runs `api` and `ui` together; use http://localhost:5173 |
 | `make test` | Runs the backend tests (Ollama is faked, so Ollama need not be running) |
-| `make lint` | Ruff lint and format check, plus a frontend build check |
+| `make lint` | Ruff lint and format check, plus a UI build check |
 | `make fmt` | Auto-formats the backend |
 | `make clean` | Removes build output and caches |
 
@@ -138,25 +138,28 @@ Example: `OLLAMA_URL=http://192.168.1.20:11434 make run`
 ## Project layout
 
 ```
-main.py                 FastAPI app (API plus static serving of frontend/dist)
-tests/test_api.py       Backend tests with a fake Ollama
-Makefile                Run, build, test and lint commands
-frontend/
-  src/lib/player.js     Streams PCM chunks into the Web Audio API
-  src/stores/voice.js   Pinia store: settings, speech input, playback, history
-  src/components/       Composer, Controls, History
-  vite.config.js        Tailwind/DaisyUI plugin and the /api dev proxy
+Makefile                  Run, build, test and lint commands (run from here)
+README.md
+api/                      Python backend (uv project)
+  main.py                   FastAPI app: API endpoints, plus serves ui/dist
+  tests/test_api.py         Backend tests with a fake Ollama
+  pyproject.toml            Python dependencies, ruff and pytest config
+ui/                       Vue frontend (npm project)
+  src/lib/player.js         Streams PCM chunks into the Web Audio API
+  src/stores/voice.js       Pinia store: settings, speech input, playback, history
+  src/components/           Composer, Controls, History
+  vite.config.js            Tailwind/DaisyUI plugin and the /api dev proxy
 ```
 
 ## Troubleshooting
 
 - **"Backend problem: Cannot reach Ollama"**: Ollama is not running or `OLLAMA_URL` is wrong. Start it with `ollama serve` (or open the Ollama app) and press Retry.
 - **Voice list is empty or `model not found`**: run `ollama pull phonon`. Check that `ollama list` shows it, and that your Ollama is 0.40.9 or newer (`ollama --version`).
-- **Page shows `{"detail":"Not Found"}` or is blank at port 8000**: the frontend has not been built. Run `make build`, or use `make run`.
+- **Page shows `{"detail":"Not Found"}` or is blank at port 8000**: the UI has not been built. Run `make build`, or use `make run`.
 - **Mic button is disabled**: the browser has no speech recognition (for example Firefox). Use Chrome, Edge or Safari.
 - **Mic says `not-allowed`**: microphone permission was denied. Allow it in the browser's site settings and reload.
 - **No sound**: browsers block audio until you interact with the page. Press the button again, and check the volume slider and your system output.
-- **In `make dev`, requests fail with a CORS error**: use http://localhost:5173 (or `127.0.0.1:5173`), which the backend allows. Other origins are blocked unless you edit `allow_origins` in `main.py`.
+- **In `make dev`, requests fail with a CORS error**: use http://localhost:5173 (or `127.0.0.1:5173`), which the backend allows. Other origins are blocked unless you edit `allow_origins` in `api/main.py`.
 - **Long text takes a while to start**: the model generates audio in order, so playback starts after the first chunk is ready and continues as the rest arrives.
 
 ## Limitations

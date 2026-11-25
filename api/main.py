@@ -1,6 +1,6 @@
 """Voices: a thin FastAPI layer over Ollama's `phonon` text-to-speech model.
 
-Run with:  uv run uvicorn main:app --reload
+Run from this directory with:  uv run uvicorn main:app --reload
 """
 
 import os
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MODEL = os.getenv("PHONON_MODEL", "phonon")
 SAMPLE_RATE = 24_000  # phonon emits 16-bit signed little-endian mono PCM at 24 kHz
-DIST = Path(__file__).parent / "frontend" / "dist"
+DIST = Path(__file__).resolve().parent.parent / "ui" / "dist"
 
 
 def make_client() -> httpx.AsyncClient:
@@ -166,6 +166,6 @@ async def speak(req: SpeakRequest):
     )
 
 
-# Serve the built frontend when present (`npm run build` in ./frontend).
+# Serve the built frontend when present (`npm run build` in ../ui).
 if DIST.is_dir():
     app.mount("/", StaticFiles(directory=DIST, html=True), name="web")
