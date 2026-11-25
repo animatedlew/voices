@@ -39,7 +39,7 @@ export const useVoiceStore = defineStore('voice', () => {
   const listening = ref(false)
   // Why voice input is unavailable, or '' if it works.
   const sttProblem = !SR
-    ? 'Speech recognition is not supported in this browser. Try Chrome, Edge or Safari.'
+    ? 'Speech recognition is not supported in this browser.'
     : !window.isSecureContext
       ? 'The microphone needs HTTPS or localhost.'
       : ''

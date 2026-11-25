@@ -19,7 +19,7 @@ It is a text-to-speech app, not a chatbot. No language model sits in between: th
 | [uv](https://docs.astral.sh/uv/) | Manages Python 3.14 and the backend dependencies. |
 | Node.js 20.19+ and npm | Builds the UI. Developed with Node 24. |
 | `make` | Optional, but all commands below use it. |
-| A modern browser | Chrome, Edge or Safari for voice input. Firefox works for typing only. |
+| A modern browser | Voice input needs a browser with speech recognition. Tested in Firefox. Chrome, Edge and Safari also provide it but are untested. Without it, typing still works. |
 
 ### Hardware
 
@@ -92,7 +92,7 @@ Settings are saved in your browser's local storage.
 
 ## Voice input notes
 
-- Speech-to-text uses the browser's Web Speech API, not a local model. In Chrome and Edge the audio is sent to the browser vendor's cloud service for transcription. If that matters to you, type instead. The text-to-speech side stays fully local.
+- Speech-to-text uses the browser's Web Speech API, not a local model. Depending on the browser, the audio may be sent to a cloud service for transcription instead of being processed on your machine, so check your browser's privacy documentation. If that matters to you, type instead. The text-to-speech side stays fully local.
 - The microphone only works on `localhost` or over HTTPS. If you serve the app on another machine over plain HTTP, the mic button will fail.
 - The first time you press the mic, the browser asks for microphone permission.
 
@@ -135,6 +135,36 @@ Set these as environment variables before starting the backend.
 
 Example: `OLLAMA_URL=http://192.168.1.20:11434 make run`
 
+## Technology
+
+### UI (`ui/`)
+
+| Technology | Used for |
+| --- | --- |
+| [Vue 3](https://vuejs.org) | Components, using the Composition API with `<script setup>`. |
+| [Pinia](https://pinia.vuejs.org) | State: settings, voices, speech input, playback status and history live in one store (`src/stores/voice.js`). Settings persist to `localStorage`. |
+| [Tailwind CSS 4](https://tailwindcss.com) and [DaisyUI 5](https://daisyui.com) | Styling and the component classes and themes. |
+| [Vite](https://vite.dev) | Dev server with hot reload, the production build, and the `/api` proxy to the backend in dev. |
+| **Web Speech API** (`SpeechRecognition`) | Voice input, done by the browser's own speech recognition rather than by this project. |
+| **Fetch streaming** (`ReadableStream`) | Reads the audio response chunk by chunk instead of waiting for the whole clip. |
+| **Web Audio API** | Decodes each raw PCM chunk and schedules it for gapless playback. Volume is a gain node, and speed is the playback rate (which is why pitch shifts with it). See `src/lib/player.js`. |
+
+There is no UI framework beyond these, and no TypeScript or frontend test suite.
+
+### API (`api/`)
+
+| Technology | Used for |
+| --- | --- |
+| [Python 3.14](https://www.python.org) and [uv](https://docs.astral.sh/uv/) | Runtime, and dependency and virtual environment management (`pyproject.toml` and `uv.lock`). |
+| [FastAPI](https://fastapi.tiangolo.com) | The HTTP API, with generated docs at `/docs`. Async endpoints, and `StreamingResponse` to pass audio through as it arrives. |
+| [Pydantic](https://docs.pydantic.dev) | Validates request bodies (text length, blank text, voice). |
+| [Uvicorn](https://www.uvicorn.org) | The ASGI server. |
+| [httpx](https://www.python-httpx.org) | Async client for talking to Ollama. Streams the response with no read timeout, because long text takes a while to generate. |
+| [Ollama](https://ollama.com) with the `phonon` model | Does the actual text-to-speech through its OpenAI-style `/v1/audio/speech` endpoint, returning raw 24 kHz PCM. The API also reads the voice list and model details from `/api/show`. |
+| [pytest](https://docs.pytest.org) and [Ruff](https://docs.astral.sh/ruff/) | Tests (with Ollama faked through `httpx.MockTransport`), linting and formatting. |
+
+The API serves the built UI from `ui/dist` when it exists, so one process serves the whole app in production mode.
+
 ## Project layout
 
 ```
@@ -156,7 +186,7 @@ ui/                       Vue frontend (npm project)
 - **"Backend problem: Cannot reach Ollama"**: Ollama is not running or `OLLAMA_URL` is wrong. Start it with `ollama serve` (or open the Ollama app) and press Retry.
 - **Voice list is empty or `model not found`**: run `ollama pull phonon`. Check that `ollama list` shows it, and that your Ollama is 0.40.9 or newer (`ollama --version`).
 - **Page shows `{"detail":"Not Found"}` or is blank at port 8000**: the UI has not been built. Run `make build`, or use `make run`.
-- **Mic button is disabled**: the browser has no speech recognition (for example Firefox). Use Chrome, Edge or Safari.
+- **Mic button is disabled**: the browser has no speech recognition. Typing still works, or try a different browser.
 - **Mic says `not-allowed`**: microphone permission was denied. Allow it in the browser's site settings and reload.
 - **No sound**: browsers block audio until you interact with the page. Press the button again, and check the volume slider and your system output.
 - **In `make dev`, requests fail with a CORS error**: use http://localhost:5173 (or `127.0.0.1:5173`), which the backend allows. Other origins are blocked unless you edit `allow_origins` in `api/main.py`.
